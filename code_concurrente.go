@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"os"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -52,20 +52,24 @@ func (lr *LinearRegression) Predict(X []float64) []float64 {
 	return predictions
 }
 
-func ReadDataset(dataname string) ([]float64, []float64) {
+func ReadDataset(url string) ([]float64, []float64) {
 
 	var x []float64
 	var y []float64
 
-	file, err := os.Open(dataname)
+	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("Error al abrir archivo: ", err)
-		defer file.Close().Error()
+		fmt.Println("Error al hacer la solicitud HTTP: ", err)
 		return x, y
 	}
-	defer file.Close()
+	defer resp.Body.Close()
 
-	reader := csv.NewReader(file)
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Error: no se pudo descargar el archivo CSV. Código de estado: ", resp.StatusCode)
+		return x, y
+	}
+
+	reader := csv.NewReader(resp.Body)
 	records, err := reader.ReadAll()
 	if err != nil {
 		fmt.Println("Error al leer el archivo CSV:", err)
@@ -99,7 +103,7 @@ func ReadDataset(dataname string) ([]float64, []float64) {
 }
 
 func main() {
-	X, y := ReadDataset("train.csv")
+	X, y := ReadDataset("https://raw.githubusercontent.com/FrowsyFrog/T3_ProgramacionConcurrenteDistribuida/main/train.csv")
 
 	// Medir tiempo de entrenamiento
 	startTraining := time.Now()

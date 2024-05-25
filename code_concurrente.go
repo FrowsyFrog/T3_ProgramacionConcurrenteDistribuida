@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -115,25 +116,60 @@ func ReadDataset(url string) ([]float64, []float64) {
 	return x, y
 }
 
-func main() {
-	X, y := ReadDataset("https://raw.githubusercontent.com/FrowsyFrog/T3_ProgramacionConcurrenteDistribuida/main/train.csv")
-
-	// Medir tiempo de entrenamiento
-	startTraining := time.Now()
-
-	var lr LinearRegression
+func InitialTest(lr LinearRegression, X, y []float64) {
+	start := time.Now()
 	lr.Fit(X, y)
+	elapsed := time.Since(start)
 
-	elapsedTraining := time.Since(startTraining)
-
-	fmt.Printf("Training Time: %s\n", elapsedTraining)
-
-	fmt.Printf("Slope: %.2f\n", lr.slope)
-	fmt.Printf("Intercept: %.2f\n", lr.intercept)
+	fmt.Printf("Training time: %v\n", elapsed)
+	fmt.Printf("Slope: %f\n", lr.slope)
+	fmt.Printf("Intercept: %f\n", lr.intercept)
 
 	newX := []float64{100}
 	predictions := lr.Predict(newX)
 
 	fmt.Println("Input: ", newX)
 	fmt.Println("Predictions:", predictions)
+}
+
+func PerformanceTest(n int, lr LinearRegression, X, y []float64) []time.Duration {
+	durations := make([]time.Duration, n)
+	for i := 0; i < n; i++ {
+		start := time.Now()
+		lr.Fit(X, y)
+		durations[i] = time.Since(start)
+	}
+	return durations
+}
+
+func Duration2Int(durations []time.Duration) []int {
+	arr := make([]int, len(durations))
+	for i, d := range durations {
+		arr[i] = int(d)
+	}
+	return arr
+}
+
+func Int2Duration(ints []int) []time.Duration {
+	arr := make([]time.Duration, len(ints))
+	for i, val := range ints {
+		arr[i] = time.Duration(val)
+	}
+	return arr
+}
+
+func getTop(n int, durations []time.Duration) []time.Duration {
+	tempD2I := Duration2Int(durations)
+	sort.Ints(tempD2I)
+	return Int2Duration(tempD2I[:n])
+}
+
+func main() {
+	X, y := ReadDataset("https://raw.githubusercontent.com/FrowsyFrog/T3_ProgramacionConcurrenteDistribuida/main/train.csv")
+	var lr LinearRegression
+
+	// InitialTest(lr, X, y)
+	testTimes := PerformanceTest(1000, lr, X, y)
+	topN := 10
+	fmt.Println("Mejores", topN, "tiempos: ", getTop(topN, testTimes))
 }

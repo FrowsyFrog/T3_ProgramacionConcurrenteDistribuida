@@ -19,24 +19,37 @@ func (lr *LinearRegression) Fit(X, y []float64) {
 		panic("X and y must have the same length")
 	}
 
-	var sumX, sumY, sumXY, sumXSquare float64
-	var mu sync.Mutex
+	type PartialSums struct {
+		sumX, sumY, sumXY, sumXSquare float64
+	}
+
+	partialSumsChan := make(chan PartialSums, len(X))
 	var wg sync.WaitGroup
 	wg.Add(len(X))
 
 	for i := 0; i < len(X); i++ {
 		go func(i int) {
-			mu.Lock()
 			defer wg.Done()
-			defer mu.Unlock()
-
-			sumX += X[i]
-			sumY += y[i]
-			sumXY += X[i] * y[i]
-			sumXSquare += X[i] * X[i]
+			partialSumsChan <- PartialSums{
+				sumX:       X[i],
+				sumY:       y[i],
+				sumXY:      X[i] * y[i],
+				sumXSquare: X[i] * X[i],
+			}
 		}(i)
 	}
+
 	wg.Wait()
+	close(partialSumsChan)
+
+	var sumX, sumY, sumXY, sumXSquare float64
+
+	for partial := range partialSumsChan {
+		sumX += partial.sumX
+		sumY += partial.sumY
+		sumXY += partial.sumXY
+		sumXSquare += partial.sumXSquare
+	}
 
 	n := float64(len(X))
 
